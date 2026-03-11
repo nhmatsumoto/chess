@@ -1,6 +1,7 @@
 using Chess.Application.Common.Interfaces;
 using Chess.Domain.Entities;
 using Chess.Domain.ValueObjects;
+using Microsoft.EntityFrameworkCore;
 
 namespace Chess.Infrastructure.Persistence.Repositories;
 
@@ -31,7 +32,7 @@ public class GameRepository : IGameRepository
     public async Task AddAsync(ChessGame game)
     {
         _context.Games.Add(game);
-        await PersistBoard(game);
+        PersistBoard(game);
         await _context.SaveChangesAsync();
     }
 
@@ -42,8 +43,7 @@ public class GameRepository : IGameRepository
         // Refresh pieces
         var existingPieces = await _context.Pieces.Where(p => p.GameId == game.Id).ToListAsync();
         _context.Pieces.RemoveRange(existingPieces);
-
-        await PersistBoard(game);
+        PersistBoard(game);
         await _context.SaveChangesAsync();
     }
 
@@ -52,7 +52,7 @@ public class GameRepository : IGameRepository
         return await _context.Games.ToListAsync();
     }
 
-    private async Task PersistBoard(ChessGame game)
+    private void PersistBoard(ChessGame game)
     {
         for (int f = 0; f < 8; f++)
         {

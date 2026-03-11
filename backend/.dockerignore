@@ -1,12 +1,16 @@
+# Exclude build artifacts
 bin/
 obj/
 .vscode/
 .idea/
 *.user
 *.lock.json
+
+# Exclude legacy files from the build context
 Controllers/
 Logic/
 Models/
 Services/
 Program.cs
 ChessBackend.csproj
+Chess.WebApi.csproj

@@ -1,11 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copy solution and project files
-COPY src/Chess.Domain/*.csproj src/Chess.Domain/
-COPY src/Chess.Application/*.csproj src/Chess.Application/
-COPY src/Chess.Infrastructure/*.csproj src/Chess.Infrastructure/
-COPY src/Chess.WebApi/*.csproj src/Chess.WebApi/
+# Copy all project files at once to maintain folder structure for restore
+COPY src/*/*.csproj ./
+RUN for file in $(ls *.csproj); do mkdir -p src/${file%.*}/ && mv $file src/${file%.*}/; done
 
 RUN dotnet restore src/Chess.WebApi/Chess.WebApi.csproj
 
