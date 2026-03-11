@@ -1,21 +1,23 @@
-# Build Stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /app
 
-# Copy csproj and restore
-COPY *.csproj ./
-RUN dotnet restore
+# Copy solution and project files
+COPY src/Chess.Domain/*.csproj src/Chess.Domain/
+COPY src/Chess.Application/*.csproj src/Chess.Application/
+COPY src/Chess.Infrastructure/*.csproj src/Chess.Infrastructure/
+COPY src/Chess.WebApi/*.csproj src/Chess.WebApi/
+COPY ChessBackend.csproj ./
+
+RUN dotnet restore src/Chess.WebApi/Chess.WebApi.csproj
 
 # Copy everything else and build
-COPY . ./
-RUN dotnet publish -c Release -o out
+COPY src/ src/
+RUN dotnet publish src/Chess.WebApi/Chess.WebApi.csproj -c Release -o /out
 
-# Runtime Stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
-COPY --from=build /app/out .
+COPY --from=build /out .
 
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
-
-ENTRYPOINT ["dotnet", "ChessBackend.dll"]
+ENV ASPNETCORE_URLS=http://+:5000
+EXPOSE 5000
+ENTRYPOINT ["dotnet", "Chess.WebApi.dll"]
