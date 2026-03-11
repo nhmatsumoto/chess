@@ -24,7 +24,9 @@ public class GameService : IGameService
     public async Task<string> CreateGameAsync()
     {
         var game = new ChessGame();
+        Console.WriteLine($"Creating new game with ID: {game.Id}");
         await _repository.AddAsync(game);
+        Console.WriteLine($"Game {game.Id} persisted successfully.");
         return game.Id.ToString();
     }
 

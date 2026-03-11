@@ -15,6 +15,8 @@ RUN dotnet publish src/Chess.WebApi/Chess.WebApi.csproj -c Release -o /out --no-
 # Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
+# Install dependencies for Npgsql Kerberos support
+RUN apt-get update && apt-get install -y libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out .
 
 # Triple-redundancy for port 5000
@@ -22,9 +24,5 @@ ENV ASPNETCORE_URLS=http://0.0.0.0:5000
 ENV ASPNETCORE_HTTP_PORTS=5000
 ENV ASPNETCORE_ENVIRONMENT=Development
 EXPOSE 5000
-
-# Basic healthcheck to see if the process is alive from outside
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
-  CMD curl -f http://localhost:5000/health || exit 1
 
 ENTRYPOINT ["dotnet", "Chess.WebApi.dll"]

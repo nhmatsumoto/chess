@@ -17,8 +17,8 @@ interface GameState {
   makeMove: (from: string, to: string) => Promise<void>;
 }
 
-export const useGameStore = create<GameState>((set, get) => ({
-  roomId: null,
+export const useGameStore = create<GameState>((set: any, get: any) => ({
+  roomId: localStorage.getItem('chess_room_id'),
   board: [],
   turn: 'White',
   history: [],
@@ -26,14 +26,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   legalMoves: [],
   isLoading: false,
 
-  setRoomId: (id: string) => set({ roomId: id }),
+  setRoomId: (id: string) => {
+    localStorage.setItem('chess_room_id', id);
+    set({ roomId: id });
+  },
 
   createRoom: async () => {
     set({ isLoading: true });
     try {
       const data: any = await api.post('/chess/rooms');
-      set({ roomId: data.roomId, isLoading: false });
-      return data.roomId;
+      const id = data.roomId;
+      localStorage.setItem('chess_room_id', id);
+      set({ roomId: id, isLoading: false });
+      return id;
     } catch (e: any) {
       alert(`Failed to connect to backend: ${e}`);
       set({ isLoading: false });

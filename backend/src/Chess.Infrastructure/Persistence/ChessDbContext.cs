@@ -26,7 +26,11 @@ public class ChessDbContext : DbContext
                    .HasColumnType("jsonb")
                    .HasConversion(
                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null!),
-                       v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null!) ?? new List<string>());
+                       v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null!) ?? new List<string>(),
+                       new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                           (c1, c2) => c1!.SequenceEqual(c2!),
+                           c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                           c => c.ToList()));
         });
 
         modelBuilder.Entity<ChessPiece>(builder =>
