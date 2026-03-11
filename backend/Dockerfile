@@ -1,20 +1,25 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# Use .NET 10 SDK for building
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /app
 
-# Copy all project files at once to maintain folder structure for restore
-COPY src/*/*.csproj ./
-RUN for file in $(ls *.csproj); do mkdir -p src/${file%.*}/ && mv $file src/${file%.*}/; done
+# Copy the entire src folder first to maintain structure correctly for restore
+# This is safer than the loop for complex Clean Architecture setups
+COPY src/ ./src/
 
+# Restore the main project (which will restore all dependencies)
 RUN dotnet restore src/Chess.WebApi/Chess.WebApi.csproj
 
-# Copy everything else and build
-COPY src/ src/
-RUN dotnet publish src/Chess.WebApi/Chess.WebApi.csproj -c Release -o /out
+# Build and Publish
+RUN dotnet publish src/Chess.WebApi/Chess.WebApi.csproj -c Release -o /out --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+# Runtime Stage
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /out .
 
-ENV ASPNETCORE_URLS=http://+:5000
-EXPOSE 5000
+# Standard .NET 8+ port is 8080
+ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_ENVIRONMENT=Development
+EXPOSE 8080
+
 ENTRYPOINT ["dotnet", "Chess.WebApi.dll"]

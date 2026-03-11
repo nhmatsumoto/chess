@@ -1,6 +1,6 @@
 {
-  "SerializedFilePath": "/home/nhmatsumoto/chess/backend/obj/Debug/net8.0/project.razor.json",
-  "FilePath": "/home/nhmatsumoto/chess/backend/ChessBackend.csproj",
+  "SerializedFilePath": "/home/nhmatsumoto/chess/backend/src/Chess.WebApi/obj/Debug/net10.0/project.razor.json",
+  "FilePath": "/home/nhmatsumoto/chess/backend/src/Chess.WebApi/Chess.WebApi.csproj",
   "Configuration": {
     "ConfigurationName": "MVC-3.0",
     "LanguageVersion": "8.0",
@@ -12,9 +12,9 @@
   },
   "ProjectWorkspaceState": {
     "TagHelpers": [],
-    "CSharpLanguageVersion": 1200
+    "CSharpLanguageVersion": 1300
   },
-  "RootNamespace": "ChessBackend",
+  "RootNamespace": "Chess.WebApi",
   "Documents": [],
   "SerializationFormat": "0.3"
 }

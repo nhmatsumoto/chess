@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Chess.Application.Common.DTOs;
 
 namespace Chess.Application.Common.Interfaces;

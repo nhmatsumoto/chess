@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import api from '../services/api';
 
 interface GameState {
   roomId: string | null;
@@ -8,7 +9,6 @@ interface GameState {
   status: string;
   legalMoves: string[];
   isLoading: boolean;
-  apiUrl: string;
 
   setRoomId: (id: string) => void;
   createRoom: () => Promise<string>;
@@ -25,42 +25,36 @@ export const useGameStore = create<GameState>((set, get) => ({
   status: 'Active',
   legalMoves: [],
   isLoading: false,
-  apiUrl: (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api',
 
   setRoomId: (id: string) => set({ roomId: id }),
 
   createRoom: async () => {
     set({ isLoading: true });
     try {
-      const resp = await fetch(`${get().apiUrl}/chess/rooms`, { method: 'POST' });
-      const data = await resp.json();
+      const data: any = await api.post('/chess/rooms');
       set({ roomId: data.roomId, isLoading: false });
       return data.roomId;
     } catch (e) {
-      console.error('Failed to create room', e);
-      alert('Failed to connect to backend. Make sure the backend is running at ' + get().apiUrl);
+      alert('Failed to connect to backend. Please check your connection.');
       set({ isLoading: false });
       return '';
     }
   },
 
   fetchGame: async () => {
-    const { roomId, apiUrl } = get();
+    const { roomId } = get();
     if (!roomId) return;
     
     set({ isLoading: true });
     try {
-      const resp = await fetch(`${apiUrl}/chess/rooms/${roomId}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        set({
-          board: data.board,
-          turn: data.turn,
-          history: data.history,
-          status: data.status,
-          legalMoves: [],
-        });
-      }
+      const data: any = await api.get(`/chess/rooms/${roomId}`);
+      set({
+        board: data.board,
+        turn: data.turn,
+        history: data.history,
+        status: data.status,
+        legalMoves: [],
+      });
     } catch (e) {
       console.error('Failed to fetch game', e);
     } finally {
@@ -69,34 +63,27 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   fetchLegalMoves: async (pos: string) => {
-    const { roomId, apiUrl } = get();
+    const { roomId } = get();
     if (!roomId) return;
 
     try {
-      const resp = await fetch(`${apiUrl}/chess/rooms/${roomId}/moves?pos=${pos}`);
-      if (resp.ok) {
-        const moves = await resp.json();
-        set({ legalMoves: moves });
-      }
+      const moves: any = await api.get(`/chess/rooms/${roomId}/moves`, {
+        params: { pos }
+      });
+      set({ legalMoves: moves });
     } catch (e) {
       set({ legalMoves: [] });
     }
   },
 
   makeMove: async (from: string, to: string) => {
-    const { roomId, apiUrl } = get();
+    const { roomId } = get();
     if (!roomId) return;
 
     set({ isLoading: true });
     try {
-      const resp = await fetch(`${apiUrl}/chess/rooms/${roomId}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to })
-      });
-      if (resp.ok) {
-        await get().fetchGame();
-      }
+      await api.post(`/chess/rooms/${roomId}/move`, { from, to });
+      await get().fetchGame();
     } catch (e) {
       console.error('Move failed', e);
     } finally {

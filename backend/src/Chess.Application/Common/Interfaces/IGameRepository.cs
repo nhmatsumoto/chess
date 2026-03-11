@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Chess.Domain.Entities;
 
 namespace Chess.Application.Common.Interfaces;

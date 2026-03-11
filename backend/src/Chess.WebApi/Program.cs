@@ -42,11 +42,22 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
+app.MapGet("/health", () => "Healthy");
+app.MapGet("/", () => "Chess API is running on port 8080 (mapped to 5000)");
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ChessDbContext>();
-    db.Database.EnsureCreated();
+    try 
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ChessDbContext>();
+        db.Database.EnsureCreated();
+        Console.WriteLine("Database initialized successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database initialization failed: {ex.Message}");
+        // Don't rethrow to allow the app to start and show health/swagger
+    }
 }
 
 app.Run();

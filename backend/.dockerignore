@@ -6,11 +6,11 @@ obj/
 *.user
 *.lock.json
 
-# Exclude legacy files from the build context
-Controllers/
-Logic/
-Models/
-Services/
-Program.cs
-ChessBackend.csproj
-Chess.WebApi.csproj
+# Exclude legacy files from the build context (root only)
+/Controllers/
+/Logic/
+/Models/
+/Services/
+/Program.cs
+/ChessBackend.csproj
+/Chess.WebApi.csproj

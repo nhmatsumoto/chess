@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Chess.Application.Common.DTOs;
 
 public record GameDto(
