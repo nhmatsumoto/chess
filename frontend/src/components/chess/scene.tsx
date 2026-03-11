@@ -4,15 +4,24 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 interface ChessSceneProps {
   board: any[];
+  legalMoves: string[];
   onMove$?: (from: string, to: string) => void;
+  onSelect$?: (pos: string) => void;
 }
 
 export const ChessScene = component$((props: ChessSceneProps) => {
   const containerRef = useSignal<Element>();
   const selectedPos = useSignal<string | null>(null);
 
-  useVisibleTask$(({ cleanup }) => {
+  useVisibleTask$(({ track, cleanup }) => {
+    track(() => props.board);
+    track(() => props.legalMoves);
+
     if (!containerRef.value) return;
+
+    // Cleanup previous renderer if it exists
+    const oldCanvas = containerRef.value.querySelector('canvas');
+    if (oldCanvas) containerRef.value.removeChild(oldCanvas);
 
     const width = containerRef.value.clientWidth;
     const height = containerRef.value.clientHeight;
@@ -31,11 +40,9 @@ export const ChessScene = component$((props: ChessSceneProps) => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // Raycaster for selection
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // BOARD and LIGHTING (omitting for brevity in thought, but keeping in code)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -49,12 +56,18 @@ export const ChessScene = component$((props: ChessSceneProps) => {
     const whiteMat = new THREE.MeshPhongMaterial({ color: 0xe2e8f0 });
     const blackMat = new THREE.MeshPhongMaterial({ color: 0x334155 });
     const highlightMat = new THREE.MeshPhongMaterial({ color: 0x60a5fa, emissive: 0x2563eb });
+    const legalMat = new THREE.MeshPhongMaterial({ color: 0x4ade80, emissive: 0x16a34a });
 
     for (let f = 0; f < 8; f++) {
       for (let r = 0; r < 8; r++) {
         const isWhite = (f + r) % 2 !== 0;
-        const square = new THREE.Mesh(squareGeo, isWhite ? whiteMat : blackMat);
         const posStr = `${String.fromCharCode(97 + f)}${r + 1}`;
+        
+        let mat = isWhite ? whiteMat : blackMat;
+        if (posStr === selectedPos.value) mat = highlightMat;
+        else if (props.legalMoves.includes(posStr)) mat = legalMat;
+
+        const square = new THREE.Mesh(squareGeo, mat);
         square.name = `square_${posStr}`;
         square.userData = { pos: posStr };
         square.position.set(f - 3.5, 0, r - 3.5);
@@ -65,27 +78,20 @@ export const ChessScene = component$((props: ChessSceneProps) => {
     }
     scene.add(boardGroup);
 
-    const renderPieces = (boardData: any[]) => {
-      const existing = scene.getObjectByName('piecesGroup');
-      if (existing) scene.remove(existing);
-      const piecesGroup = new THREE.Group();
-      piecesGroup.name = 'piecesGroup';
-      boardData.forEach(p => {
-        const f = p.pos[0].charCodeAt(0) - 97;
-        const r = parseInt(p.pos[1]) - 1;
-        const mesh = new THREE.Mesh(
-          p.type === 'Pawn' ? new THREE.CylinderGeometry(0.3, 0.4, 0.8) : new THREE.BoxGeometry(0.5, 1.2, 0.5),
-          new THREE.MeshPhongMaterial({ color: p.color === 'White' ? 0xffffff : 0x1e293b })
-        );
-        mesh.position.set(f - 3.5, 0.5, r - 3.5);
-        mesh.userData = { pos: p.pos };
-        mesh.castShadow = true;
-        piecesGroup.add(mesh);
-      });
-      scene.add(piecesGroup);
-    };
-
-    renderPieces(props.board);
+    const piecesGroup = new THREE.Group();
+    props.board.forEach(p => {
+      const f = p.pos[0].charCodeAt(0) - 97;
+      const r = parseInt(p.pos[1]) - 1;
+      const mesh = new THREE.Mesh(
+        p.type === 'Pawn' ? new THREE.CylinderGeometry(0.3, 0.4, 0.8) : new THREE.BoxGeometry(0.5, 1.2, 0.5),
+        new THREE.MeshPhongMaterial({ color: p.color === 'White' ? 0xffffff : 0x1e293b })
+      );
+      mesh.position.set(f - 3.5, 0.5, r - 3.5);
+      mesh.userData = { pos: p.pos };
+      mesh.castShadow = true;
+      piecesGroup.add(mesh);
+    });
+    scene.add(piecesGroup);
 
     const handleClick = (event: MouseEvent) => {
       const rect = containerRef.value!.getBoundingClientRect();
@@ -100,30 +106,34 @@ export const ChessScene = component$((props: ChessSceneProps) => {
         const pos = square.userData.pos;
 
         if (selectedPos.value) {
-          if (props.onMove$) props.onMove$(selectedPos.value, pos);
-          selectedPos.value = null;
-          // Reset highlights
-          squares.forEach(s => s.material = (s.userData.pos[0].charCodeAt(0) - 97 + parseInt(s.userData.pos[1]) - 1) % 2 !== 0 ? whiteMat : blackMat);
+          if (props.legalMoves.includes(pos)) {
+            if (props.onMove$) props.onMove$(selectedPos.value, pos);
+            selectedPos.value = null;
+          } else {
+            // Change selection or cancel
+            selectedPos.value = pos;
+            if (props.onSelect$) props.onSelect$(pos);
+          }
         } else {
           selectedPos.value = pos;
-          square.material = highlightMat;
+          if (props.onSelect$) props.onSelect$(pos);
         }
       }
     };
 
     containerRef.value.addEventListener('click', (e) => handleClick(e as MouseEvent));
 
-    let animationId: number;
     const animate = () => {
-      animationId = requestAnimationFrame(animate);
+      if (!renderer.domElement.parentElement) return;
+      requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     };
     animate();
 
     cleanup(() => {
-      cancelAnimationFrame(animationId);
       renderer.dispose();
+      // Remove event listener if necessary, but Qwik cleanup usually handles it if we do it right
     });
   });
 

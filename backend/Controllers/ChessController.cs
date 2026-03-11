@@ -1,69 +1,83 @@
-using ChessBackend.Models;
 using Microsoft.AspNetCore.Mvc;
+using ChessBackend.Models;
+using ChessBackend.Logic;
+using ChessBackend.Services;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace ChessBackend.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/chess")]
     public class ChessController : ControllerBase
     {
-        private static ChessGame? _game;
+        private readonly IRoomService _roomService;
 
-        [HttpGet]
-        public IActionResult GetGame()
+        public ChessController(IRoomService roomService)
         {
-            if (_game == null) _game = new ChessGame();
-            
+            _roomService = roomService;
+        }
+
+        [HttpPost("rooms")]
+        public IActionResult CreateRoom()
+        {
+            var room = _roomService.CreateRoom();
+            return Ok(new { roomId = room.Id });
+        }
+
+        [HttpGet("rooms/{roomId}")]
+        public IActionResult GetGame(string roomId)
+        {
+            var room = _roomService.GetRoom(roomId);
+            if (room == null) return NotFound("Room not found");
+
+            var game = room.Game;
             return Ok(new
             {
-                board = SerializeBoard(_game.Board),
-                turn = _game.CurrentTurn.ToString(),
-                history = _game.MoveHistory
+                board = game.Board.Squares.SelectMany((row, r) => 
+                    row.Select((p, f) => new { 
+                        type = p?.Type.ToString(), 
+                        color = p?.Color.ToString(), 
+                        pos = new Position(f, r).ToString() 
+                    }).Where(x => x.type != null)),
+                turn = game.CurrentTurn.ToString(),
+                history = game.MoveHistory,
+                status = game.Status.ToString()
             });
         }
 
-        [HttpPost("move")]
-        public IActionResult MakeMove([FromBody] MoveRequest request)
+        [HttpGet("rooms/{roomId}/moves")]
+        public IActionResult GetLegalMoves(string roomId, [FromQuery] string pos)
         {
-            if (_game == null) _game = new ChessGame();
+            var room = _roomService.GetRoom(roomId);
+            if (room == null) return NotFound("Room not found");
 
+            var position = Position.FromString(pos);
+            var moves = MoveValidator.GetLegalMoves(room.Game, position);
+            return Ok(moves.Select(m => m.ToString()));
+        }
+
+        [HttpPost("rooms/{roomId}/move")]
+        public IActionResult MakeMove(string roomId, [FromBody] MoveRequest request)
+        {
+            var room = _roomService.GetRoom(roomId);
+            if (room == null) return NotFound("Room not found");
+
+            var game = room.Game;
             var from = Position.FromString(request.From);
             var to = Position.FromString(request.To);
 
-            if (_game.ExecuteMove(from, to))
+            if (game.MakeMove(from, to))
             {
-                return Ok(new { success = true, board = SerializeBoard(_game.Board), turn = _game.CurrentTurn.ToString() });
+                return Ok(new { success = true, status = game.Status.ToString() });
             }
-
             return BadRequest("Invalid move");
-        }
-
-        private List<object> SerializeBoard(ChessBoard board)
-        {
-            var pieces = new List<object>();
-            for (int f = 0; f < 8; f++)
-            {
-                for (int r = 0; r < 8; r++)
-                {
-                    var piece = board.GetPiece(new Position(f, r));
-                    if (piece != null)
-                    {
-                        pieces.Add(new
-                        {
-                            type = piece.Type.ToString(),
-                            color = piece.Color.ToString(),
-                            pos = new Position(f, r).ToString()
-                        });
-                    }
-                }
-            }
-            return pieces;
         }
     }
 
     public class MoveRequest
     {
-        public string From { get; set; } = string.Empty;
-        public string To { get; set; } = string.Empty;
+        public string From { get; set; }
+        public string To { get; set; }
     }
 }

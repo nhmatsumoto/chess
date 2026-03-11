@@ -1,100 +1,203 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using ChessBackend.Models;
+
 namespace ChessBackend.Logic
 {
-    using Models;
-
-    public class MoveValidator
+    public static class MoveValidator
     {
-        public static bool IsValidMove(ChessGame game, Position from, Position to)
+        public static List<Position> GetLegalMoves(ChessGame game, Position from)
         {
             var piece = game.Board.GetPiece(from);
-            if (piece == null || piece.Color != game.CurrentTurn) return false;
+            if (piece == null || piece.Color != game.CurrentTurn) return new List<Position>();
 
-            var targetPiece = game.Board.GetPiece(to);
-            if (targetPiece != null && targetPiece.Color == piece.Color) return false;
+            var pseudoMoves = GetPseudoLegalMoves(game, from);
+            var legalMoves = new List<Position>();
 
-            int dx = to.File - from.File;
-            int dy = to.Rank - from.Rank;
-
-            return piece.Type switch
+            foreach (var to in pseudoMoves)
             {
-                PieceType.Pawn => ValidatePawn(game, piece, from, to, dx, dy),
-                PieceType.Rook => ValidateRook(game, from, to, dx, dy),
-                PieceType.Knight => ValidateKnight(dx, dy),
-                PieceType.Bishop => ValidateBishop(game, from, to, dx, dy),
-                PieceType.Queen => ValidateQueen(game, from, to, dx, dy),
-                PieceType.King => ValidateKing(dx, dy),
-                _ => false
-            };
-        }
-
-        private static bool ValidatePawn(ChessGame game, ChessPiece piece, Position from, Position to, int dx, int dy)
-        {
-            int direction = piece.Color == PieceColor.White ? 1 : -1;
-            var target = game.Board.GetPiece(to);
-
-            // Forward move
-            if (dx == 0)
-            {
-                if (target != null) return false;
-                if (dy == direction) return true;
-                if (!piece.HasMoved && dy == 2 * direction)
+                if (IsMoveLegal(game, from, to))
                 {
-                    return game.Board.GetPiece(new Position(from.File, from.Rank + direction)) == null;
+                    legalMoves.Add(to);
                 }
             }
-            // Capture
-            else if (Math.Abs(dx) == 1 && dy == direction)
+
+            // Add Castling
+            if (piece.Type == PieceType.King && !piece.HasMoved && !IsInCheck(game, piece.Color))
             {
-                return target != null && target.Color != piece.Color;
+                // Kingside
+                if (CanCastle(game, piece.Color, true))
+                    legalMoves.Add(new Position(6, from.Rank));
+                // Queenside
+                if (CanCastle(game, piece.Color, false))
+                    legalMoves.Add(new Position(2, from.Rank));
             }
 
+            return legalMoves;
+        }
+
+        private static bool CanCastle(ChessGame game, PieceColor color, bool kingside)
+        {
+            int rank = color == PieceColor.White ? 0 : 7;
+            int rookFile = kingside ? 7 : 0;
+            var rook = game.Board.GetPiece(new Position(rookFile, rank));
+
+            if (rook == null || rook.Type != PieceType.Rook || rook.HasMoved || rook.Color != color) return false;
+
+            int[] path = kingside ? new[] { 5, 6 } : new[] { 1, 2, 3 };
+            foreach (int f in path)
+            {
+                if (game.Board.GetPiece(new Position(f, rank)) != null) return false;
+            }
+
+            int[] checkPath = kingside ? new[] { 5, 6 } : new[] { 2, 3 };
+            foreach (int f in checkPath)
+            {
+                if (IsSquareAttacked(game, new Position(f, rank), color == PieceColor.White ? PieceColor.Black : PieceColor.White)) return false;
+            }
+
+            return true;
+        }
+
+        public static bool IsInCheck(ChessGame game, PieceColor color)
+        {
+            var kingPos = FindKing(game.Board, color);
+            return IsSquareAttacked(game, kingPos, color == PieceColor.White ? PieceColor.Black : PieceColor.White);
+        }
+
+        private static bool IsMoveLegal(ChessGame game, Position from, Position to)
+        {
+            // Simulate move
+            var board = game.Board;
+            var piece = board.GetPiece(from);
+            var target = board.GetPiece(to);
+
+            board.SetPiece(to, piece);
+            board.SetPiece(from, null);
+
+            bool inCheck = IsInCheck(game, piece!.Color);
+
+            // Revert move
+            board.SetPiece(from, piece);
+            board.SetPiece(to, target);
+
+            return !inCheck;
+        }
+
+        public static List<Position> GetPseudoLegalMoves(ChessGame game, Position from)
+        {
+            var piece = game.Board.GetPiece(from);
+            if (piece == null) return new List<Position>();
+
+            var moves = new List<Position>();
+
+            switch (piece.Type)
+            {
+                case PieceType.Pawn: GeneratePawnMoves(game, from, piece, moves); break;
+                case PieceType.Rook: GenerateSlidingMoves(game, from, piece, new[] { (0, 1), (0, -1), (1, 0), (-1, 0) }, moves); break;
+                case PieceType.Knight: GenerateSteppingMoves(game, from, piece, new[] { (1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1) }, moves); break;
+                case PieceType.Bishop: GenerateSlidingMoves(game, from, piece, new[] { (1, 1), (1, -1), (-1, 1), (-1, -1) }, moves); break;
+                case PieceType.Queen: GenerateSlidingMoves(game, from, piece, new[] { (0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1) }, moves); break;
+                case PieceType.King: GenerateSteppingMoves(game, from, piece, new[] { (0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1) }, moves); break;
+            }
+
+            return moves;
+        }
+
+        private static void GeneratePawnMoves(ChessGame game, Position from, ChessPiece piece, List<Position> moves)
+        {
+            int dir = piece.Color == PieceColor.White ? 1 : -1;
+            
+            // Forward
+            var oneStep = new Position(from.File, from.Rank + dir);
+            if (oneStep.IsValid() && game.Board.GetPiece(oneStep) == null)
+            {
+                moves.Add(oneStep);
+                var twoStep = new Position(from.File, from.Rank + 2 * dir);
+                if (!piece.HasMoved && twoStep.IsValid() && game.Board.GetPiece(twoStep) == null && from.Rank == (piece.Color == PieceColor.White ? 1 : 6))
+                    moves.Add(twoStep);
+            }
+
+            // Captures
+            foreach (int side in new[] { -1, 1 })
+            {
+                var cap = new Position(from.File + side, from.Rank + dir);
+                if (cap.IsValid())
+                {
+                    var target = game.Board.GetPiece(cap);
+                    if (target != null && target.Color != piece.Color) moves.Add(cap);
+                    else if (game.EnPassantSquare != null && cap.File == game.EnPassantSquare.File && cap.Rank == game.EnPassantSquare.Rank) 
+                        moves.Add(cap);
+                }
+            }
+        }
+
+        private static void GenerateSlidingMoves(ChessGame game, Position from, ChessPiece piece, (int dx, int dy)[] dirs, List<Position> moves)
+        {
+            foreach (var (dx, dy) in dirs)
+            {
+                int f = from.File + dx;
+                int r = from.Rank + dy;
+                while (true)
+                {
+                    var pos = new Position(f, r);
+                    if (!pos.IsValid()) break;
+
+                    var target = game.Board.GetPiece(pos);
+                    if (target == null) moves.Add(pos);
+                    else
+                    {
+                        if (target.Color != piece.Color) moves.Add(pos);
+                        break;
+                    }
+                    f += dx;
+                    r += dy;
+                }
+            }
+        }
+
+        private static void GenerateSteppingMoves(ChessGame game, Position from, ChessPiece piece, (int dx, int dy)[] steps, List<Position> moves)
+        {
+            foreach (var (dx, dy) in steps)
+            {
+                var pos = new Position(from.File + dx, from.Rank + dy);
+                if (pos.IsValid())
+                {
+                    var target = game.Board.GetPiece(pos);
+                    if (target == null || target.Color != piece.Color) moves.Add(pos);
+                }
+            }
+        }
+
+        public static bool IsSquareAttacked(ChessGame game, Position pos, PieceColor byColor)
+        {
+            for (int f = 0; f < 8; f++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    var currentPos = new Position(f, r);
+                    var p = game.Board.GetPiece(currentPos);
+                    if (p != null && p.Color == byColor)
+                    {
+                        var moves = GetPseudoLegalMoves(game, currentPos);
+                        if (moves.Any(m => m.File == pos.File && m.Rank == pos.Rank)) return true;
+                    }
+                }
+            }
             return false;
         }
 
-        private static bool ValidateRook(ChessGame game, Position from, Position to, int dx, int dy)
+        private static Position FindKing(ChessBoard board, PieceColor color)
         {
-            if (dx != 0 && dy != 0) return false;
-            return IsPathClear(game, from, to);
-        }
-
-        private static bool ValidateKnight(int dx, int dy)
-        {
-            int adx = Math.Abs(dx);
-            int ady = Math.Abs(dy);
-            return (adx == 1 && ady == 2) || (adx == 2 && ady == 1);
-        }
-
-        private static bool ValidateBishop(ChessGame game, Position from, Position to, int dx, int dy)
-        {
-            if (Math.Abs(dx) != Math.Abs(dy)) return false;
-            return IsPathClear(game, from, to);
-        }
-
-        private static bool ValidateQueen(ChessGame game, Position from, Position to, int dx, int dy)
-        {
-            if (dx != 0 && dy != 0 && Math.Abs(dx) != Math.Abs(dy)) return false;
-            return IsPathClear(game, from, to);
-        }
-
-        private static bool ValidateKing(int dx, int dy)
-        {
-            return Math.Abs(dx) <= 1 && Math.Abs(dy) <= 1;
-        }
-
-        private static bool IsPathClear(ChessGame game, Position from, Position to)
-        {
-            int xStep = Math.Sign(to.File - from.File);
-            int yStep = Math.Sign(to.Rank - from.Rank);
-            int x = from.File + xStep;
-            int y = from.Rank + yStep;
-
-            while (x != to.File || y != to.Rank)
-            {
-                if (game.Board.GetPiece(new Position(x, y)) != null) return false;
-                x += xStep;
-                y += yStep;
-            }
-            return true;
+            for (int f = 0; f < 8; f++)
+                for (int r = 0; r < 8; r++)
+                {
+                    var pos = new Position(f, r);
+                    var p = board.GetPiece(pos);
+                    if (p != null && p.Color == color && p.Type == PieceType.King) return pos;
+                }
+            throw new Exception("King not found!");
         }
     }
 }

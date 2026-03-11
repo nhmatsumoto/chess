@@ -5,7 +5,9 @@ export default component$((props: any) => {
   const gameState = useStore({
     board: [] as any[],
     turn: 'White',
-    history: [] as string[]
+    history: [] as string[],
+    status: 'Active',
+    legalMoves: [] as string[]
   });
 
   const fetchGameState = $(async () => {
@@ -16,19 +18,26 @@ export default component$((props: any) => {
       gameState.board = data.board;
       gameState.turn = data.turn;
       gameState.history = data.history;
+      gameState.status = data.status || 'Active';
+      gameState.legalMoves = [];
     } catch (e) {
-      console.warn('Backend not reachable, using demo state');
-      gameState.board = [
-        { type: 'Pawn', color: 'White', pos: 'e2' },
-        { type: 'Pawn', color: 'Black', pos: 'e7' },
-        { type: 'King', color: 'White', pos: 'e1' },
-        { type: 'King', color: 'Black', pos: 'e8' }
-      ];
+      console.warn('Backend not reachable');
+    }
+  });
+
+  const handleSelect = $(async (pos: string) => {
+    try {
+      const apiUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+      const resp = await fetch(`${apiUrl}/chess/moves?pos=${pos}`);
+      if (resp.ok) {
+        gameState.legalMoves = await resp.json();
+      }
+    } catch (e) {
+      gameState.legalMoves = [];
     }
   });
 
   const handleMove = $(async (from: string, to: string) => {
-    console.log(`Moving from ${from} to ${to}`);
     try {
       const apiUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
       const resp = await fetch(`${apiUrl}/chess/move`, {
@@ -36,17 +45,11 @@ export default component$((props: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from, to })
       });
-      if (resp.ok) await fetchGameState();
-    } catch (e) {
-      // Demo move if backend fails
-      const pieceIdx = gameState.board.findIndex(p => p.pos === from);
-      if (pieceIdx !== -1) {
-        const newBoard = [...gameState.board];
-        newBoard[pieceIdx] = { ...newBoard[pieceIdx], pos: to };
-        gameState.board = newBoard;
-        gameState.history = [...gameState.history, `${from} to ${to}`];
-        gameState.turn = gameState.turn === 'White' ? 'Black' : 'White';
+      if (resp.ok) {
+        await fetchGameState();
       }
+    } catch (e) {
+      console.error('Move failed', e);
     }
   });
 
@@ -63,10 +66,12 @@ export default component$((props: any) => {
         </div>
         <div class="flex items-center gap-6">
           <div class="flex flex-col items-end">
-             <span class="text-xs text-slate-400 uppercase tracking-widest">Current Turn</span>
-             <span class={`text-lg font-bold ${gameState.turn === 'White' ? 'text-white' : 'text-slate-500'}`}>{gameState.turn}</span>
+             <span class="text-xs text-slate-400 uppercase tracking-widest">{gameState.status === 'Active' ? 'Current Turn' : 'Status'}</span>
+             <span class={`text-lg font-bold ${gameState.status !== 'Active' ? 'text-red-400' : gameState.turn === 'White' ? 'text-white' : 'text-slate-500'}`}>
+               {gameState.status === 'Active' ? gameState.turn : gameState.status}
+             </span>
           </div>
-          <button onClick$={fetchGameState} class="p-2 rounded bg-slate-700 hover:bg-slate-600 transition-colors">
+          <button onClick$={() => window.location.reload()} class="p-2 rounded bg-slate-700 hover:bg-slate-600 transition-colors">
             Reset
           </button>
         </div>
@@ -74,7 +79,12 @@ export default component$((props: any) => {
       
       <main class="flex-1 flex relative">
         <div class="flex-1 relative">
-          <ChessScene board={gameState.board} onMove$={handleMove} />
+          <ChessScene 
+            board={gameState.board} 
+            legalMoves={gameState.legalMoves}
+            onMove$={handleMove} 
+            onSelect$={handleSelect}
+          />
         </div>
         
         <aside class="w-80 bg-slate-800/50 backdrop-blur-md p-6 border-l border-white/10 flex flex-col gap-6">
