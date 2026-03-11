@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Chess.Application.Common.Interfaces;
 using Chess.Domain.Entities;
 using Chess.Domain.ValueObjects;
-using Microsoft.EntityFrameworkCore;
 
 namespace Chess.Infrastructure.Persistence.Repositories;
 
@@ -27,7 +23,7 @@ public class GameRepository : IGameRepository
         {
             game.Board.SetPiece(new Position(p.File, p.Rank), p);
         }
-        
+
         // Note: For a truly robust system, we'd persist more state (last move, etc.)
         return game;
     }
@@ -42,11 +38,11 @@ public class GameRepository : IGameRepository
     public async Task UpdateAsync(ChessGame game)
     {
         _context.Games.Update(game);
-        
+
         // Refresh pieces
         var existingPieces = await _context.Pieces.Where(p => p.GameId == game.Id).ToListAsync();
         _context.Pieces.RemoveRange(existingPieces);
-        
+
         await PersistBoard(game);
         await _context.SaveChangesAsync();
     }

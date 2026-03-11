@@ -1,5 +1,7 @@
 using Chess.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Collections.Generic;
 
 namespace Chess.Infrastructure.Persistence;
 
@@ -18,6 +20,13 @@ public class ChessDbContext : DbContext
             builder.HasMany<ChessPiece>().WithOne().HasForeignKey(p => p.GameId);
             builder.Ignore(g => g.Board);
             builder.Ignore(g => g.EnPassantSquare);
+            
+            // Auto-convert List<string> to JSON for storage
+            builder.Property(g => g.MoveHistory)
+                   .HasColumnType("jsonb")
+                   .HasConversion(
+                       v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null!),
+                       v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null!) ?? new List<string>());
         });
 
         modelBuilder.Entity<ChessPiece>(builder =>

@@ -1,6 +1,3 @@
-using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using Chess.Application.Common.Interfaces;
 
 namespace Chess.WebApi.Controllers
@@ -34,7 +31,7 @@ namespace Chess.WebApi.Controllers
         [HttpGet("rooms/{roomId}/moves")]
         public async Task<IActionResult> GetLegalMoves(string roomId, [FromQuery] string pos)
         {
-            try 
+            try
             {
                 var moves = await _gameService.GetLegalMovesAsync(roomId, pos);
                 return Ok(moves);

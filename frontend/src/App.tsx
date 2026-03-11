@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from './store/gameStore';
-import { ChessScene } from './components/chess/ChessScene';
+import { ChessScene } from './components/chess/ChessScene.tsx';
 import { ScrollText, RotateCcw, Copy, LogOut, Plus, LogIn } from 'lucide-react';
 
 function App() {
@@ -38,9 +38,9 @@ function App() {
               disabled={isLoading}
               className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 rounded-xl font-bold flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-500/20"
             >
-              <Plus size={20} />
               {isLoading ? 'Creating...' : 'Create New Room'}
             </button>
+            {isLoading && <p className="text-blue-400 text-xs text-center animate-pulse">Communicating with backend...</p>}
 
             <div className="relative flex items-center py-4">
               <div className="flex-grow border-t border-slate-700"></div>

@@ -38,6 +38,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return data.roomId;
     } catch (e) {
       console.error('Failed to create room', e);
+      alert('Failed to connect to backend. Make sure the backend is running at ' + get().apiUrl);
       set({ isLoading: false });
       return '';
     }

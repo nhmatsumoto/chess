@@ -1,0 +1,12 @@
+bin/
+obj/
+.vscode/
+.idea/
+*.user
+*.lock.json
+Controllers/
+Logic/
+Models/
+Services/
+Program.cs
+ChessBackend.csproj
