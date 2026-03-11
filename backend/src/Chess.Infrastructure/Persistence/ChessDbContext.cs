@@ -32,6 +32,8 @@ public class ChessDbContext : DbContext
         modelBuilder.Entity<ChessPiece>(builder =>
         {
             builder.HasKey(p => p.Id);
+            builder.Property(p => p.Type).HasConversion<string>();
+            builder.Property(p => p.Color).HasConversion<string>();
         });
     }
 }

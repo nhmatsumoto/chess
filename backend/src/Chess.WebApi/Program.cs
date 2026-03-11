@@ -1,3 +1,4 @@
+// Professional Project - Cognitive OS v0.1 - Build 2026.03.11.1441
 using Chess.Application.Common.Interfaces;
 using Chess.Application.Games;
 using Chess.Domain.Logic;
@@ -8,8 +9,7 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddOpenApi();
 
 // Database
 builder.Services.AddDbContext<ChessDbContext>(options =>
@@ -35,15 +35,14 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapOpenApi();
 }
 
 app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/health", () => "Healthy");
-app.MapGet("/", () => "Chess API is running on port 8080 (mapped to 5000)");
+app.MapGet("/", () => "Chess API is running on port 5000");
 
 using (var scope = app.Services.CreateScope())
 {

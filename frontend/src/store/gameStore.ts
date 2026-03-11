@@ -34,8 +34,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       const data: any = await api.post('/chess/rooms');
       set({ roomId: data.roomId, isLoading: false });
       return data.roomId;
-    } catch (e) {
-      alert('Failed to connect to backend. Please check your connection.');
+    } catch (e: any) {
+      alert(`Failed to connect to backend: ${e}`);
       set({ isLoading: false });
       return '';
     }

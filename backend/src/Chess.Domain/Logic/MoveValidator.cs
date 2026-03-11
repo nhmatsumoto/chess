@@ -173,15 +173,41 @@ public static class MoveValidator
         }
     }
 
+    public static List<Position> GetAttackedSquares(ChessGame game, Position from)
+    {
+        var piece = game.Board.GetPiece(from);
+        if (piece == null) return new List<Position>();
+
+        var moves = new List<Position>();
+
+        if (piece.Type == PieceType.Pawn)
+        {
+            int dir = piece.Color == PieceColor.White ? 1 : -1;
+            foreach (int side in new[] { -1, 1 })
+            {
+                var cap = new Position(from.File + side, from.Rank + dir);
+                if (cap.IsValid()) moves.Add(cap);
+            }
+        }
+        else
+        {
+            // For other pieces, attacks are same as pseudo-legal moves (ignoring check)
+            moves = GetPseudoLegalMoves(game, from);
+        }
+
+        return moves;
+    }
+
     public static bool IsSquareAttacked(ChessGame game, Position pos, PieceColor byColor)
     {
         for (int f = 0; f < 8; f++)
             for (int r = 0; r < 8; r++)
             {
-                var p = game.Board.GetPiece(new Position(f, r));
+                var atPos = new Position(f, r);
+                var p = game.Board.GetPiece(atPos);
                 if (p != null && p.Color == byColor)
                 {
-                    if (GetPseudoLegalMoves(game, new Position(f, r)).Any(m => m.File == pos.File && m.Rank == pos.Rank)) return true;
+                    if (GetAttackedSquares(game, atPos).Any(m => m.File == pos.File && m.Rank == pos.Rank)) return true;
                 }
             }
         return false;
